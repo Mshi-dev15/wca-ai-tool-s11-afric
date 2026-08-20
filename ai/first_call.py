@@ -94,20 +94,29 @@ def analyze_message(farmer_message: str, quick_option: str = None) -> dict:
     if quick_option:
         user_content = f"[Quick option selected: {quick_option}] {user_content}"
 
-    # --- Error case 2: the API call itself fails (no internet, bad key, etc.) ---
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            response_format={"type": "json_object"},  # forces valid JSON output
-            
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-        )
-    except Exception as api_error:
+    # --- Error case 2: the API call itself fails (no internet, timeout, etc.) ---
+    # Retries once before giving up — a single dropped connection or
+    # brief timeout shouldn't fail the whole request.
+    response = None
+    last_error = None
+
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                response_format={"type": "json_object"},  # forces valid JSON output
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            break  # success — stop retrying
+        except Exception as api_error:
+            last_error = api_error
+
+    if response is None:
         return _fallback_response(
-            error=f"api_call_failed: {api_error}",
+            error=f"api_call_failed: {last_error}",
             clarification_question="I'm having trouble connecting right now. Please try again in a moment.",
         )
 
