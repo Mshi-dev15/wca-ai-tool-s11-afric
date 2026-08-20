@@ -55,6 +55,11 @@ CONSTRAINTS:
   conditions would genuinely change the advice (e.g. planting timing,
   irrigation, disease risk from rain). Routine questions (storage,
   general crop info) should be false.
+- If the intent is pest_disease or fertilizer_soil and there are
+  multiple plausible causes for what the farmer describes, list 2-4
+  short, distinct possible_causes (e.g. "Fungal blight", "Nitrogen
+  deficiency"). If there's only one clear cause, or the intent
+  doesn't involve diagnosing a cause, leave possible_causes empty.
 
 OUTPUT FORMAT:
 Reply ONLY with valid JSON, no extra commentary, matching exactly:
@@ -70,7 +75,8 @@ Reply ONLY with valid JSON, no extra commentary, matching exactly:
   "clarification_required": true or false,
   "clarification_question": string or null,
   "corrected_message": string,
-  "weather_required": true or false
+  "weather_required": true or false,
+  "possible_causes": [array of strings, empty if not applicable]
 }
 """
 
@@ -153,6 +159,7 @@ def _fallback_response(error: str, clarification_question: str) -> dict:
         "clarification_question": clarification_question,
         "corrected_message": "",
         "weather_required": False,
+        "possible_causes": [],
         "error": error,  # extra field, not part of the strict contract,
                           # useful for logging/debugging during testing
     }
