@@ -150,3 +150,28 @@ if __name__ == "__main__":
     plan = generate_action_plan(sample_analysis)
     print("Call 2 output:\n")
     print(plan)
+
+    # --- Quick manual test from the command line ---
+if __name__ == "__main__":
+    # A sample analysis dict, as if it came straight from Call 1
+    sample_analysis = {
+        "intent": "pest_disease",
+        "user_goal": "Find out what to do about holes in maize leaves",
+        "crop": "maize",
+        "location": "Kiserian",
+        "farm_size": None,
+        "growth_stage": None,
+        "symptoms": ["Holes in the maize leaves"],
+        "timeline": None,
+        "clarification_required": False,
+        "clarification_question": None,
+        "weather_required": False,
+        "weather": None,
+    }
+    
+    plan = generate_action_plan(sample_analysis)
+    print("Call 2 output:\n")
+    print(plan)
+    
+    # 👇 ADD THIS LINE TO PAUSE THE TERMINAL FOR YOUR PRESENTATION 👇
+    input("\n✅ Test completed successfully. Press Enter to exit...")
