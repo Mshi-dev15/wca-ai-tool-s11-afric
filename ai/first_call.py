@@ -412,19 +412,6 @@ def _build_conversation_context(
         if not content:
             continue
 
-        # -----------------------------------------------------
-        # Prevent current message from appearing twice.
-        #
-        # This is important because app.py may:
-        #
-        # 1. save current message
-        # 2. load chat history
-        # 3. call get_full_analysis()
-        #
-        # If the final database message is the same as the
-        # current message, don't repeat it here.
-        # -----------------------------------------------------
-
         if (
             role == "user"
             and content.lower() == current_normalized
@@ -466,10 +453,6 @@ def analyze_message(
     an exception to the Streamlit app.
     """
 
-    # ---------------------------------------------------------
-    # EMPTY INPUT
-    # ---------------------------------------------------------
-
     if not farmer_message or not farmer_message.strip():
 
         return _fallback_response(
@@ -478,10 +461,6 @@ def analyze_message(
                 "Please tell me what farming help you need today."
             ),
         )
-
-    # ---------------------------------------------------------
-    # CURRENT USER MESSAGE
-    # ---------------------------------------------------------
 
     user_content = farmer_message.strip()
 
@@ -492,18 +471,10 @@ def analyze_message(
             f"{user_content}"
         )
 
-    # ---------------------------------------------------------
-    # BUILD PREVIOUS CONVERSATION
-    # ---------------------------------------------------------
-
     conversation_context = _build_conversation_context(
         conversation_history,
         farmer_message,
     )
-
-    # ---------------------------------------------------------
-    # BUILD MODEL PROMPT
-    # ---------------------------------------------------------
 
     analysis_prompt = f"""
 PREVIOUS CONVERSATION
@@ -537,10 +508,6 @@ Remember:
 - Return ONLY the required JSON object.
 """
 
-    # ---------------------------------------------------------
-    # API CALL
-    # ---------------------------------------------------------
-
     response = None
     last_error = None
 
@@ -571,10 +538,6 @@ Remember:
 
             last_error = api_error
 
-    # ---------------------------------------------------------
-    # API FAILURE
-    # ---------------------------------------------------------
-
     if response is None:
 
         return _fallback_response(
@@ -584,10 +547,6 @@ Remember:
                 "Please try again in a moment."
             ),
         )
-
-    # ---------------------------------------------------------
-    # GET MODEL OUTPUT
-    # ---------------------------------------------------------
 
     try:
 
@@ -608,10 +567,6 @@ Remember:
             ),
         )
 
-    # ---------------------------------------------------------
-    # PARSE JSON
-    # ---------------------------------------------------------
-
     try:
 
         data = json.loads(raw_text)
@@ -628,10 +583,6 @@ Remember:
                 "Could you rephrase?"
             ),
         )
-
-    # ---------------------------------------------------------
-    # ENSURE REQUIRED FIELDS EXIST
-    # ---------------------------------------------------------
 
     data = _ensure_analysis_shape(data)
 
@@ -678,8 +629,6 @@ def _ensure_analysis_shape(data: dict) -> dict:
 
         if key not in data:
             data[key] = default_value
-
-    # Make sure array fields are actually arrays.
 
     if not isinstance(
         data.get("symptoms"),
@@ -748,19 +697,11 @@ def get_full_analysis(
     This is the function that app.py should call.
     """
 
-    # ---------------------------------------------------------
-    # RUN CALL 1
-    # ---------------------------------------------------------
-
     analysis = analyze_message(
         farmer_message=farmer_message,
         quick_option=quick_option,
         conversation_history=conversation_history,
     )
-
-    # ---------------------------------------------------------
-    # WEATHER
-    # ---------------------------------------------------------
 
     needs_weather = (
         analysis.get("weather_required")
@@ -779,7 +720,6 @@ def get_full_analysis(
 
         except Exception as weather_error:
 
-            # Weather should never crash Call 1.
             analysis["weather"] = None
 
             analysis["weather_error"] = str(
@@ -794,31 +734,39 @@ def get_full_analysis(
 
 
 # =========================================================
-# COMMAND-LINE TEST
+# COMMAND-LINE TEST — maintains conversation memory across turns
 # =========================================================
 
 if __name__ == "__main__":
 
-    print(
-        "Shamba Advisor — Call 1 conversation-memory test\n"
-    )
+    print("Shamba Advisor — Call 1 conversation-memory test")
+    print("Type 'exit' to quit.\n")
 
-    test_message = input(
-        "Type a farmer message to test: "
-    )
+    conversation_history = []
 
-    result = get_full_analysis(
-        test_message
-    )
+    while True:
 
-    print(
-        "\nCall 1 + weather output:"
-    )
+        test_message = input("You: ").strip()
 
-    print(
-        json.dumps(
-            result,
-            indent=2,
-            ensure_ascii=False,
+        if test_message.lower() == "exit":
+            print("Goodbye!")
+            break
+
+        result = get_full_analysis(
+            test_message,
+            conversation_history=conversation_history,
         )
-    )
+
+        print("\nCall 1 + weather output:")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print()
+
+        # --- Update history so the NEXT turn has real context ---
+        conversation_history.append(
+            {"role": "user", "content": test_message}
+        )
+
+        if result.get("clarification_required") and result.get("clarification_question"):
+            conversation_history.append(
+                {"role": "assistant", "content": result["clarification_question"]}
+            )

@@ -2,40 +2,9 @@
 Shamba Advisor — Main Streamlit App
 ====================================
 
-WhatsApp-style farming assistant.
-
-Project structure:
-
-wca-ai-tool-s11-afric/
-│
-├── app.py
-├── ai/
-│   ├── first_call.py
-│   └── second_call.py
-│
-├── utility/
-│   └── file_saver.py
-│
-├── models/
-│   └── database_supabase.py
-│
-├── weather/
-│   └── open_meteo.py
-│
-└── .env
-
-Features:
-- Farmer registration
-- Persistent Supabase conversations
-- WhatsApp-style UI
-- Bot messages on the left
-- Farmer messages on the right
-- Conversation memory
-- Call 1 analysis
-- Call 2 farming advice
-- Possible-cause selection
-- Weather integration through Call 1
-- Report saving/downloading
+Dark, minimal chat interface (Claude/Qwen-style), with persistent
+sign-in via a URL query parameter so returning farmers don't
+need to retype their name every session.
 """
 
 # =========================================================
@@ -74,7 +43,7 @@ st.set_page_config(
 
 
 # =========================================================
-# WHATSAPP-STYLE CSS
+# DARK, MINIMAL CSS (Claude/Qwen-style)
 # =========================================================
 
 st.html("""
@@ -85,39 +54,37 @@ st.html("""
    ===================================================== */
 
 .stApp {
-    background-color: #efeae2;
+    background-color: #1e1e1e !important;
+    color: #e8e6e3 !important;
 }
 
 .main .block-container {
-    max-width: 1100px;
+    max-width: 900px;
     padding-top: 1rem;
     padding-bottom: 6rem;
 }
 
 
 /* =====================================================
-   WHATSAPP HEADER
+   HEADER
    ===================================================== */
 
-.whatsapp-header {
-    background-color: #075e54;
-    color: white;
-    padding: 14px 20px;
-    border-radius: 10px 10px 0 0;
-    margin-bottom: 12px;
-
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.20);
+.app-header {
+    background-color: transparent !important;
+    color: #e8e6e3 !important;
+    padding: 14px 0 !important;
+    margin-bottom: 16px !important;
+    border: none !important;
 }
 
 .header-title {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 600;
 }
 
 .header-subtitle {
     font-size: 13px;
-    opacity: 0.85;
+    opacity: 0.6;
     margin-top: 2px;
 }
 
@@ -126,32 +93,17 @@ st.html("""
    CHAT MESSAGE ROW
    ===================================================== */
 
-.whatsapp-chat {
+.chat-row {
     width: 100%;
     display: flex;
-
-    margin-top: 7px;
-    margin-bottom: 7px;
-
-    padding-left: 8px;
-    padding-right: 8px;
-
+    margin-top: 12px;
+    margin-bottom: 12px;
     box-sizing: border-box;
 }
-
-
-/* =====================================================
-   BOT = LEFT
-   ===================================================== */
 
 .bot-row {
     justify-content: flex-start;
 }
-
-
-/* =====================================================
-   FARMER = RIGHT
-   ===================================================== */
 
 .user-row {
     justify-content: flex-end;
@@ -159,113 +111,223 @@ st.html("""
 
 
 /* =====================================================
-   BOT BUBBLE
+   MESSAGE BUBBLES — Claude style 
+   (Assistant = plain text, User = subtle box)
    ===================================================== */
 
 .bot-bubble {
-    background-color: #ffffff;
-    color: #111111;
-
-    padding: 9px 13px;
-
-    border-radius:
-        7px
-        7px
-        7px
-        2px;
-
-    max-width: 72%;
-
-    font-size: 15px;
-    line-height: 1.5;
-
-    box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.15);
-
-    overflow-wrap: anywhere;
+    background-color: transparent !important;
+    color: #e8e6e3 !important;
+    padding: 4px 0 !important;
+    border-radius: 0 !important;
+    max-width: 85% !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    overflow-wrap: anywhere !important;
 }
-
-
-/* =====================================================
-   FARMER BUBBLE
-   ===================================================== */
 
 .user-bubble {
-    background-color: #d9fdd3;
-    color: #111111;
-
-    padding: 9px 13px;
-
-    border-radius:
-        7px
-        7px
-        2px
-        7px;
-
-    max-width: 72%;
-
-    font-size: 15px;
-    line-height: 1.5;
-
-    box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.15);
-
-    overflow-wrap: anywhere;
+    background-color: #2a2a28 !important;
+    color: #e8e6e3 !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    max-width: 75% !important;
+    font-size: 15px !important;
+    line-height: 1.55 !important;
+    border: 1px solid #3a3a38 !important;
+    overflow-wrap: anywhere !important;
 }
-
-
-/* =====================================================
-   MESSAGE TEXT
-   ===================================================== */
 
 .message-text {
     white-space: normal;
     word-wrap: break-word;
 }
 
-
-/* =====================================================
-   SENDER NAME
-   ===================================================== */
-
 .sender-name {
     font-size: 11px;
     font-weight: 600;
+    margin-bottom: 4px;
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+}
 
-    margin-bottom: 3px;
-
-    opacity: 0.65;
+/* Hide sender name for bot to make it look like plain text */
+.bot-row .sender-name {
+    display: block !important;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+    color: #d97757 !important
 }
 
 
 /* =====================================================
-   SIDEBAR
+   SIDEBAR — minimal list, plain text (no boxes)
    ===================================================== */
 
 section[data-testid="stSidebar"] {
-    background-color: #f0f2f5;
+    background-color: #191919 !important;
+    border-right: 1px solid #2f2f2d !important;
 }
 
 section[data-testid="stSidebar"] .block-container {
-    padding-top: 1.5rem;
+    padding-top: 1.5rem !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: transparent !important;
+    color: #a8a6a2 !important;
+    border: none !important;
+    text-align: left !important;
+    padding: 6px 8px !important;
+    font-size: 13.5px !important;
+    border-radius: 4px !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    margin-bottom: 2px !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #262624 !important;
+    color: #ffffff !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:active,
+section[data-testid="stSidebar"] .stButton > button:focus {
+    background-color: transparent !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
 }
 
 
 /* =====================================================
-   CHAT INPUT
+   CHAT INPUT — minimal, clean bar like Qwen
    ===================================================== */
 
-[data-testid="stChatInput"] {
-    background-color: #f0f2f5;
+div[data-testid="stChatInput"] {
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+div[data-testid="stChatInput"] > div {
+    background-color: #2a2a28 !important;
+    border: 1px solid #3a3a38 !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+}
+
+div[data-testid="stChatInput"] textarea {
+    background-color: transparent !important;
+    color: #e8e6e3 !important;
+    font-size: 14px !important;
+    box-shadow: none !important;
+    border: none !important;
+    resize: none !important;
+}
+
+div[data-testid="stChatInput"] textarea:focus {
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+}
+
+div[data-testid="stChatInput"] textarea::placeholder {
+    color: #6a6a68 !important;
+    opacity: 0.7 !important;
+}
+
+div[data-testid="stChatInput"] button {
+    background-color: #d97757 !important;
+    color: #1e1e1e !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    min-width: auto !important;
+    width: auto !important;
+    box-shadow: none !important;
+}
+
+div[data-testid="stChatInput"] button:hover {
+    background-color: #e08b6e !important;
+}
+
+div[data-testid="stChatInput"] form {
+    gap: 8px !important;
 }
 
 
 /* =====================================================
-   BUTTONS
+   MAIN-AREA BUTTONS (cause selection, start, etc.)
    ===================================================== */
 
-.stButton > button {
-    border-radius: 8px;
+.main .stButton > button {
+    border-radius: 8px !important;
+    background-color: #d97757 !important;
+    color: #1e1e1e !important;
+    border: none !important;
+    font-weight: 500 !important;
+    transition: background-color 0.15s ease !important;
+}
+
+.main .stButton > button:hover {
+    background-color: #e08b6e !important;
+    color: #1e1e1e !important;
+}
+
+.main .stButton > button:active,
+.main .stButton > button:focus,
+.main .stButton > button:focus:not(:active) {
+    background-color: #d97757 !important;
+    color: #1e1e1e !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+
+/* =====================================================
+   TEXT INPUTS
+   ===================================================== */
+
+.stTextInput > div > div > input {
+    background-color: #262624 !important;
+    color: #e8e6e3 !important;
+    border: 1px solid #3a3a38 !important;
+}
+
+
+/* =====================================================
+   SPINNER
+   ===================================================== */
+
+[data-testid="stSpinner"] {
+    background-color: #2a2a28 !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    margin: 8px 0 !important;
+    max-width: 320px !important;
+    border: 1px solid #3a3a38 !important;
+}
+
+[data-testid="stSpinner"] > div {
+    color: #d97757 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+[data-testid="stSpinner"] svg {
+    stroke: #d97757 !important;
 }
 
 
@@ -277,17 +339,17 @@ section[data-testid="stSidebar"] .block-container {
 
     .bot-bubble,
     .user-bubble {
-        max-width: 88%;
-        font-size: 14px;
+        max-width: 90% !important;
+        font-size: 14px !important;
     }
 
     .main .block-container {
-        padding-left: 8px;
-        padding-right: 8px;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
 
     .header-title {
-        font-size: 19px;
+        font-size: 18px !important;
     }
 
 }
@@ -312,11 +374,27 @@ if "chat_id" not in st.session_state:
 if "pending_analysis" not in st.session_state:
     st.session_state.pending_analysis = None
 
-if "force_new_chat" not in st.session_state:
-    st.session_state.force_new_chat = False
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+
+# =========================================================
+# PERSISTENT SIGN-IN VIA URL QUERY PARAMETER
+# =========================================================
+
+if st.session_state.farmer_name is None:
+
+    remembered_name = st.query_params.get("farmer")
+
+    if remembered_name:
+
+        try:
+            farmer_id = get_or_create_farmer(remembered_name)
+            st.session_state.farmer_name = remembered_name
+            st.session_state.farmer_id = farmer_id
+
+        except Exception:
+            pass
 
 
 # =========================================================
@@ -327,28 +405,29 @@ if st.session_state.farmer_name is None:
 
     st.html("""
     <div style="
-        max-width:650px;
+        max-width:600px;
         margin:70px auto 20px auto;
         text-align:center;
     ">
 
         <div style="
-            font-size:60px;
+            font-size:52px;
             margin-bottom:10px;
         ">
             🌱
         </div>
 
         <h1 style="
-            color:#075e54;
+            color:#e8e6e3;
             margin-bottom:10px;
+            font-weight:600;
         ">
             Shamba Advisor
         </h1>
 
         <p style="
-            font-size:17px;
-            color:#555555;
+            font-size:16px;
+            color:#a8a6a2;
             line-height:1.5;
         ">
             Your AI farming assistant for planting,
@@ -388,8 +467,9 @@ if st.session_state.farmer_name is None:
                 st.session_state.farmer_id = farmer_id
                 st.session_state.chat_id = None
                 st.session_state.pending_analysis = None
-                st.session_state.force_new_chat = False
                 st.session_state.messages = []
+
+                st.query_params["farmer"] = farmer_name
 
                 st.rerun()
 
@@ -416,70 +496,33 @@ farmer_id = st.session_state.farmer_id
 # =========================================================
 
 def show_message(role, content):
-    """
-    WhatsApp-style message display.
-
-    Bot    -> LEFT
-    Farmer -> RIGHT
-    """
+    """Dark, minimal message display. Bot -> left (plain text), Farmer -> right (subtle box)."""
 
     if content is None:
         return
 
-    safe_content = html.escape(
-        str(content)
-    )
-
-    safe_content = safe_content.replace(
-        "\n",
-        "<br>"
-    )
-
-    # -----------------------------------------------------
-    # FARMER MESSAGE
-    # -----------------------------------------------------
+    safe_content = html.escape(str(content))
+    safe_content = safe_content.replace("\n", "<br>")
 
     if role == "user":
 
         st.html(f"""
-        <div class="whatsapp-chat user-row">
-
+        <div class="chat-row user-row">
             <div class="user-bubble">
-
-                <div class="sender-name">
-                    You
-                </div>
-
-                <div class="message-text">
-                    {safe_content}
-                </div>
-
+                <div class="sender-name">You</div>
+                <div class="message-text">{safe_content}</div>
             </div>
-
         </div>
         """)
-
-    # -----------------------------------------------------
-    # BOT MESSAGE
-    # -----------------------------------------------------
 
     else:
 
         st.html(f"""
-        <div class="whatsapp-chat bot-row">
-
+        <div class="chat-row bot-row">
             <div class="bot-bubble">
-
-                <div class="sender-name">
-                    🌱 Shamba Advisor
-                </div>
-
-                <div class="message-text">
-                    {safe_content}
-                </div>
-
+                <div class="sender-name">🌱 Shamba Advisor</div>
+                <div class="message-text">{safe_content}</div>
             </div>
-
         </div>
         """)
 
@@ -490,34 +533,14 @@ def show_message(role, content):
 
 def build_conversation_context(history, current_message):
     """
-    Creates a compact conversation context for Call 1.
-
-    The database remains the permanent record.
-
-    This function simply gives Call 1 enough previous
-    conversation context to understand follow-up questions
-    such as:
-
-        Farmer:
-        "I want to plant maize."
-
-        Bot:
-        "What area are you farming in?"
-
-        Farmer:
-        "Nakuru."
-
-    The second message should NOT be interpreted as a
-    completely independent conversation.
+    Creates a compact conversation context for Call 1, so
+    follow-up questions are understood using recent history.
     """
 
     if not history:
         return current_message.strip()
 
     context_lines = []
-
-    # Keep the context reasonably small.
-    # The database still contains the complete history.
     recent_history = history[-12:]
 
     for message in recent_history:
@@ -530,20 +553,14 @@ def build_conversation_context(history, current_message):
 
         if role == "user":
             speaker = "Farmer"
-
         elif role == "assistant":
             speaker = "Shamba Advisor"
-
         else:
             speaker = role
 
-        context_lines.append(
-            f"{speaker}: {content}"
-        )
+        context_lines.append(f"{speaker}: {content}")
 
-    previous_context = "\n".join(
-        context_lines
-    )
+    previous_context = "\n".join(context_lines)
 
     return f"""
 PREVIOUS CONVERSATION:
@@ -569,152 +586,79 @@ Do not assume that the current message starts a new conversation.
 
 with st.sidebar:
 
-    # =====================================================
-    # LOGO
-    # =====================================================
-
     st.html("""
-    <div style="
-        text-align:center;
-        font-size:42px;
-        margin-bottom:5px;
-    ">
+    <div style="text-align:center; font-size:36px; margin-bottom:5px;">
         🌱
     </div>
     """)
 
-    # =====================================================
-    # TITLE
-    # =====================================================
-
     st.html("""
     <div style="
         text-align:center;
-        font-size:20px;
-        font-weight:700;
-        color:#075e54;
+        font-size:17px;
+        font-weight:600;
+        color:#e8e6e3;
         margin-bottom:15px;
     ">
         Shamba Advisor
     </div>
     """)
 
-    # =====================================================
-    # FARMER NAME
-    # =====================================================
-
-    safe_name = html.escape(
-        str(
-            st.session_state.farmer_name
-            or "Farmer"
-        )
-    )
+    safe_name = html.escape(str(st.session_state.farmer_name or "Farmer"))
 
     st.html(f"""
     <div style="
-        background:#ffffff;
-        color:#111111;
-        padding:12px;
-        border-radius:10px;
+        background:#262624;
+        color:#e8e6e3;
+        padding:10px 12px;
+        border-radius:8px;
         margin-bottom:15px;
-        border:1px solid #dddddd;
+        border:1px solid #3a3a38;
+        font-size:13.5px;
     ">
         👋 <strong>{safe_name}</strong>
     </div>
     """)
 
-    # =====================================================
-    # NEW CHAT
-    # =====================================================
-
-    if st.button(
-        "＋ New chat",
-        use_container_width=True,
-    ):
+    if st.button("＋ New chat", use_container_width=True):
 
         st.session_state.chat_id = None
-
         st.session_state.pending_analysis = None
-
-        st.session_state.force_new_chat = True
-
         st.session_state.messages = []
-
         st.rerun()
 
-    # =====================================================
-    # RECENT CHATS
-    # =====================================================
-
     st.divider()
-
-    st.subheader("💬 Recent chats")
+    st.caption("Recent chats")
 
     try:
-
-        recent = get_recent_chats(
-            farmer_id
-        )
-
+        recent = get_recent_chats(farmer_id)
     except Exception:
-
         recent = []
-
-        st.warning(
-            "Unable to load recent chats."
-        )
+        st.warning("Unable to load recent chats.")
 
     if not recent:
-
-        st.caption(
-            "No chats yet — ask a question to start one."
-        )
-
+        st.caption("No chats yet — ask a question to start one.")
     else:
-
         for chat in recent:
 
-            label = (
-                chat.get("title")
-                or "Untitled chat"
-            )
+            label = str(chat.get("title") or "Untitled chat")[:45]
 
-            label = str(label)[:45]
+            if st.button(label, key=f"chat_{chat['id']}", use_container_width=True):
 
-            if st.button(
-                label,
-                key=f"chat_{chat['id']}",
-                use_container_width=True,
-            ):
-
-                st.session_state.chat_id = (
-                    chat["id"]
-                )
-
+                st.session_state.chat_id = chat["id"]
                 st.session_state.pending_analysis = None
-
-                st.session_state.force_new_chat = False
-
                 st.session_state.messages = []
-
                 st.rerun()
 
 
 # =========================================================
-# MAIN WHATSAPP HEADER
+# MAIN HEADER
 # =========================================================
 
 st.html("""
-<div class="whatsapp-header">
-
-    <div class="header-title">
-        🌱 Shamba Advisor
-    </div>
-
-    <div class="header-subtitle">
-        AI farming assistant • Online
-    </div>
-
+<div class="app-header">
+    <div class="header-title">🌱 Shamba Advisor</div>
+    <div class="header-subtitle">AI farming assistant</div>
 </div>
 """)
 
@@ -726,30 +670,16 @@ st.html("""
 if st.session_state.chat_id:
 
     try:
-
-        history = get_chat_history(
-            st.session_state.chat_id
-        )
-
+        history = get_chat_history(st.session_state.chat_id)
         for msg in history:
-
-            show_message(
-                msg.get("role"),
-                msg.get("content"),
-            )
+            show_message(msg.get("role"), msg.get("content"))
 
     except Exception as e:
-
         history = []
-
-        st.error(
-            "Unable to load this conversation."
-        )
-
+        st.error("Unable to load this conversation.")
         st.exception(e)
 
 else:
-
     history = []
 
 
@@ -757,149 +687,54 @@ else:
 # CALL 2
 # =========================================================
 
-def run_call_two(
-    analysis: dict,
-    selected_cause: str = None,
-):
+def run_call_two(analysis: dict, selected_cause: str = None):
     """
-    Run Call 2.
-
-    The generated advice is:
-
-    1. displayed in the chat
-    2. saved to Supabase
-    3. saved as a report
-    4. made available for download
+    Runs Call 2. The generated advice is displayed, saved to
+    Supabase, saved as a report, and made available for download.
     """
-
-    # -----------------------------------------------------
-    # SAFETY CHECK
-    # -----------------------------------------------------
 
     if not st.session_state.chat_id:
-
-        st.error(
-            "No active conversation was found."
-        )
-
+        st.error("No active conversation was found.")
         return
 
-    # -----------------------------------------------------
-    # CALL 2
-    # -----------------------------------------------------
-
-    with st.spinner(
-        "🌱 Preparing your farming advice..."
-    ):
-
+    with st.spinner("🌱 Preparing your farming advice..."):
         try:
-
-            advice = generate_action_plan(
-                analysis,
-                selected_cause=selected_cause,
-            )
-
+            advice = generate_action_plan(analysis, selected_cause=selected_cause)
         except Exception as e:
-
-            st.error(
-                "I couldn't generate the farming advice."
-            )
-
+            st.error("I couldn't generate the farming advice.")
             st.exception(e)
-
             return
 
-    # -----------------------------------------------------
-    # NORMALIZE ADVICE
-    # -----------------------------------------------------
-
     if advice is None:
-
-        advice = (
-            "I couldn't generate advice right now. "
-            "Please try again."
-        )
+        advice = "I couldn't generate advice right now. Please try again."
 
     advice = str(advice)
 
-    # -----------------------------------------------------
-    # DISPLAY BOT MESSAGE
-    # -----------------------------------------------------
-
-    show_message(
-        "assistant",
-        advice,
-    )
-
-    # -----------------------------------------------------
-    # SAVE BOT MESSAGE
-    # -----------------------------------------------------
+    show_message("assistant", advice)
 
     try:
-
-        save_message(
-            st.session_state.chat_id,
-            "assistant",
-            advice,
-        )
-
+        save_message(st.session_state.chat_id, "assistant", advice)
     except Exception as e:
-
-        st.warning(
-            "The advice was generated, "
-            "but I couldn't save it to the conversation."
-        )
-
+        st.warning("The advice was generated, but I couldn't save it to the conversation.")
         st.exception(e)
 
-    # -----------------------------------------------------
-    # SAVE REPORT
-    # -----------------------------------------------------
-
     try:
-
         crop = analysis.get("crop")
-
-        saved_path = save_report(
-            st.session_state.farmer_name,
-            crop,
-            advice,
-        )
-
-        saved_path = Path(
-            saved_path
-        )
-
-        # -------------------------------------------------
-        # DOWNLOAD BUTTON
-        # -------------------------------------------------
+        saved_path = save_report(st.session_state.farmer_name, crop, advice)
+        saved_path = Path(saved_path)
 
         if saved_path.exists():
-
-            with open(
-                saved_path,
-                "rb",
-            ) as report_file:
-
+            with open(saved_path, "rb") as report_file:
                 st.download_button(
-                    label="📥 Download this report",
+                    label=" Download this report",
                     data=report_file,
                     file_name=saved_path.name,
                     mime="text/plain",
-                    key=(
-                        f"download_"
-                        f"{st.session_state.chat_id}_"
-                        f"{saved_path.name}"
-                    ),
+                    key=f"download_{st.session_state.chat_id}_{saved_path.name}",
                 )
 
     except Exception as e:
-
-        st.warning(
-            "The advice was generated, "
-            "but the report could not be saved."
-        )
-
+        st.warning("The advice was generated, but the report could not be saved.")
         st.exception(e)
 
 
@@ -909,54 +744,21 @@ def run_call_two(
 
 if st.session_state.pending_analysis:
 
-    analysis = (
-        st.session_state.pending_analysis
-    )
-
-    possible_causes = (
-        analysis.get("possible_causes")
-        or []
-    )
-
-    # -----------------------------------------------------
-    # BOT QUESTION
-    # -----------------------------------------------------
+    analysis = st.session_state.pending_analysis
+    possible_causes = analysis.get("possible_causes") or []
 
     show_message(
         "assistant",
-        "Here are the most likely causes — "
-        "which matches what you're seeing?",
+        "Here are the most likely causes — which matches what you're seeing?",
     )
-
-    # -----------------------------------------------------
-    # CAUSE BUTTONS
-    # -----------------------------------------------------
 
     selected_cause = None
 
     if possible_causes:
-
-        cols = st.columns(
-            len(possible_causes)
-        )
-
-        for i, cause in enumerate(
-            possible_causes
-        ):
-
-            if cols[i].button(
-                str(cause),
-                key=f"cause_{i}",
-                use_container_width=True,
-            ):
-
-                selected_cause = str(
-                    cause
-                )
-
-    # -----------------------------------------------------
-    # CUSTOM CAUSE
-    # -----------------------------------------------------
+        cols = st.columns(len(possible_causes))
+        for i, cause in enumerate(possible_causes):
+            if cols[i].button(str(cause), key=f"cause_{i}", use_container_width=True):
+                selected_cause = str(cause)
 
     other_input = st.text_input(
         "Or describe it in your own words:",
@@ -964,44 +766,16 @@ if st.session_state.pending_analysis:
         placeholder="Describe what you are seeing...",
     )
 
-    if st.button(
-        "Use my own description",
-        key="other_cause_btn",
-        use_container_width=True,
-    ):
-
+    if st.button("Use my own description", key="other_cause_btn", use_container_width=True):
         if other_input.strip():
-
-            selected_cause = (
-                other_input.strip()
-            )
-
+            selected_cause = other_input.strip()
         else:
-
-            st.warning(
-                "Please describe the problem first."
-            )
-
-    # -----------------------------------------------------
-    # RUN CALL 2
-    # -----------------------------------------------------
+            st.warning("Please describe the problem first.")
 
     if selected_cause:
-
-        # Clear before generating.
-        # This prevents duplicate processing
-        # during Streamlit reruns.
-
         st.session_state.pending_analysis = None
-
-        run_call_two(
-            analysis,
-            selected_cause=selected_cause,
-        )
-
+        run_call_two(analysis, selected_cause=selected_cause)
     else:
-
-        # Wait until farmer selects a cause.
         st.stop()
 
 
@@ -1009,9 +783,7 @@ if st.session_state.pending_analysis:
 # CHAT INPUT
 # =========================================================
 
-user_message = st.chat_input(
-    "Ask about planting, pests, irrigation, harvest..."
-)
+user_message = st.chat_input("Ask about planting, pests, irrigation, harvest...")
 
 
 # =========================================================
@@ -1022,156 +794,48 @@ if user_message:
 
     user_message = user_message.strip()
 
-    # -----------------------------------------------------
-    # EMPTY MESSAGE
-    # -----------------------------------------------------
-
     if not user_message:
-
-        st.warning(
-            "Please type a question."
-        )
-
+        st.warning("Please type a question.")
         st.stop()
-
-    # -----------------------------------------------------
-    # CREATE CHAT IF NECESSARY
-    # -----------------------------------------------------
 
     if st.session_state.chat_id is None:
-
         try:
-
-            st.session_state.chat_id = (
-                create_chat(
-                    farmer_id,
-                    title=user_message[:40],
-                )
-            )
-
+            st.session_state.chat_id = create_chat(farmer_id, title=user_message[:40])
         except Exception as e:
-
-            st.error(
-                "I couldn't create the conversation."
-            )
-
+            st.error("I couldn't create the conversation.")
             st.exception(e)
-
             st.stop()
-
-    # -----------------------------------------------------
-    # LOAD PREVIOUS HISTORY BEFORE SAVING
-    # CURRENT MESSAGE
-    # -----------------------------------------------------
 
     previous_history = []
-
     try:
-
-        previous_history = get_chat_history(
-            st.session_state.chat_id
-        )
-
+        previous_history = get_chat_history(st.session_state.chat_id)
     except Exception:
-
         previous_history = []
 
-    # -----------------------------------------------------
-    # SHOW FARMER MESSAGE
-    # -----------------------------------------------------
-
-    show_message(
-        "user",
-        user_message,
-    )
-
-    # -----------------------------------------------------
-    # SAVE FARMER MESSAGE
-    # -----------------------------------------------------
+    show_message("user", user_message)
 
     try:
-
-        save_message(
-            st.session_state.chat_id,
-            "user",
-            user_message,
-        )
-
+        save_message(st.session_state.chat_id, "user", user_message)
     except Exception as e:
-
-        st.error(
-            "Your message could not be saved."
-        )
-
+        st.error("Your message could not be saved.")
         st.exception(e)
-
         st.stop()
 
-    # =====================================================
-    # BUILD MEMORY CONTEXT
-    # =====================================================
+    contextual_message = build_conversation_context(previous_history, user_message)
 
-    contextual_message = (
-        build_conversation_context(
-            previous_history,
-            user_message,
-        )
-    )
-
-    # =====================================================
-    # CALL 1
-    # =====================================================
-
-    with st.spinner(
-        "🌱 Understanding your question..."
-    ):
-
+    with st.spinner(" Understanding your question..."):
         try:
-
-            analysis = get_full_analysis(
-                contextual_message
-            )
-
+            analysis = get_full_analysis(contextual_message)
         except Exception as e:
-
-            st.error(
-                "I couldn't analyze your question."
-            )
-
+            st.error("I couldn't analyze your question.")
             st.exception(e)
-
             st.stop()
 
-    # =====================================================
-    # CHECK FOR POSSIBLE CAUSES
-    # =====================================================
-
-    possible_causes = (
-        analysis.get("possible_causes")
-        or []
-    )
+    possible_causes = analysis.get("possible_causes") or []
 
     if possible_causes:
-
-        # -------------------------------------------------
-        # Store analysis temporarily.
-        #
-        # On rerun, the chat history is loaded from
-        # Supabase and the cause-selection UI appears.
-        # -------------------------------------------------
-
-        st.session_state.pending_analysis = (
-            analysis
-        )
-
+        st.session_state.pending_analysis = analysis
         st.rerun()
 
-    # =====================================================
-    # NORMAL CALL 2
-    # =====================================================
-
     else:
-
-        run_call_two(
-            analysis
-        )
+        run_call_two(analysis)

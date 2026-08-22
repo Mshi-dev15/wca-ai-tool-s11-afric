@@ -44,6 +44,12 @@ CONSTRAINTS:
 - No jargon.
 - Keep it to roughly 150-250 words.
 - Don't repeat the diagnosis back to the farmer — focus on action.
+- Do NOT invent pesticide names or chemical doses.
+- If chemicals are relevant, tell the farmer to follow the product
+  label and local agricultural guidance rather than specifying a
+  dose yourself.
+- If spraying is recommended, remind the farmer to keep people and
+  animals away from the area being sprayed.
 
 OUTPUT FORMAT:
 Plain text only (not JSON): one short intro line, then the plan
@@ -126,7 +132,6 @@ def generate_action_plan(analysis: dict, selected_cause: str = None) -> str:
 
 # --- Quick manual test from the command line ---
 if __name__ == "__main__":
-    # A sample analysis dict, as if it came straight from Call 1
     sample_analysis = {
         "intent": "pest_disease",
         "user_goal": "Find out what to do about holes in maize leaves",
