@@ -10,6 +10,21 @@ from farmer_profile import (
 
 
 # =========================================================
+# TEMPORARY STATUS MESSAGE
+# =========================================================
+
+def clear_status_message(message):
+    """
+    Remove a temporary status message from the terminal.
+    """
+    print(
+        "\r" + " " * len(message) + "\r",
+        end="",
+        flush=True
+    )
+
+
+# =========================================================
 # HEADER
 # =========================================================
 
@@ -181,8 +196,12 @@ def main():
 
         print()
 
+        status_message = "Analyzing your question..."
+
         print(
-            "Analyzing your question..."
+            status_message,
+            end="",
+            flush=True
         )
 
 
@@ -191,6 +210,13 @@ def main():
             conversation,
 
             farmer_profile
+        )
+
+
+        # Remove temporary analysis message
+
+        clear_status_message(
+            status_message
         )
 
 
@@ -290,13 +316,24 @@ def main():
 
         print()
 
+        status_message = "Creating your action plan..."
+
         print(
-            "Creating your action plan..."
+            status_message,
+            end="",
+            flush=True
         )
 
 
         action_plan = generate_action_plan(
             analysis
+        )
+
+
+        # Remove temporary action-plan message
+
+        clear_status_message(
+            status_message
         )
 
 
