@@ -1,68 +1,330 @@
 """
 Call 1 — Intake Analysis
 --------------------------------
-Reads the farmer's raw message and turns it into structured JSON
-that Call 2 (the advice-generation step) can act on.
+Reads the farmer's current message together with the previous
+conversation history and turns it into structured JSON that
+Call 2 can act on.
 
 This file NEVER generates farming advice itself — only analysis.
+
+Conversation memory:
+- Previous messages are supplied by the Streamlit app.
+- The model uses previous messages to understand references such as:
+    "What should I plant?"
+    "How often should I water it?"
+    "What about the yellow leaves?"
+- Known farmer details from previous messages can be carried forward.
 """
 
 import os
 import json
+
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# --- Setup: load API key securely from .env, never hardcoded ---
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Cheapest suitable model tier for this task — confirm the exact
-# model string available on your account before running.
+# =========================================================
+# SETUP
+# =========================================================
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+
+# =========================================================
+# MODEL
+# =========================================================
+
 MODEL_NAME = "gpt-5.6-luna"
 
-# --- The R-T-C-C-O system prompt for Call 1 ---
+
+# =========================================================
+# SYSTEM PROMPT
+# =========================================================
+
 SYSTEM_PROMPT = """
 ROLE:
-You are Shamba Advisor's intake analyst. You understand small-scale
-Kenyan farming across the whole farming cycle: land preparation,
-planting, crop care, pests and disease, irrigation, harvest, and
-storage. You are used to messages from farmers with limited formal
-literacy — spelling mistakes, mixed English/Swahili, and incomplete
-sentences are all normal and never a reason to reject a message.
+You are Shamba Advisor's intake analyst.
 
-TASK:
-Read the farmer's message (and any quick-option they selected) and:
-1. Identify their intent.
-2. Extract whatever details they've given.
-3. Produce a lightly cleaned-up version of their message.
-4. Flag if the message is not actually about farming at all.
+You understand small-scale Kenyan farming across the whole
+farming cycle:
 
-CONTEXT:
-This is the analysis step only — you never give farming advice
-yourself, that happens in a separate step. Interpret the farmer's
-meaning generously even if spelling or grammar is imperfect.
+- land preparation
+- planting
+- crop selection
+- crop care
+- pests and diseases
+- fertilizer and soil
+- irrigation
+- weather
+- harvesting
+- storage
 
-CONSTRAINTS:
-- Never invent details the farmer didn't give. Use null instead.
-- If the message is unrelated to farming (jokes, testing you, random
-  chat), set intent to "off_topic" — do not force it into a farming
-  category.
-- If it's farming-related but too vague to act on, set
-  clarification_required to true with one short clarification_question.
-- corrected_message must stay faithful to the original meaning — fix
-  spelling/grammar only, never add new information.
-- Set weather_required to true only if current or recent weather
-  conditions would genuinely change the advice (e.g. planting timing,
-  irrigation, disease risk from rain). Routine questions (storage,
-  general crop info) should be false.
-- If the intent is pest_disease or fertilizer_soil and there are
-  multiple plausible causes for what the farmer describes, list 2-4
-  short, distinct possible_causes (e.g. "Fungal blight", "Nitrogen
-  deficiency"). If there's only one clear cause, or the intent
-  doesn't involve diagnosing a cause, leave possible_causes empty.
+You are used to messages from farmers with limited formal
+literacy. Spelling mistakes, mixed English/Swahili, shorthand,
+and incomplete sentences are normal and must not be treated
+as errors.
 
-OUTPUT FORMAT:
-Reply ONLY with valid JSON, no extra commentary, matching exactly:
+============================================================
+MOST IMPORTANT RULE: CONVERSATION MEMORY
+============================================================
+
+This is an ONGOING conversation with a farmer.
+
+The farmer's current message must NOT automatically be treated
+as a completely new conversation.
+
+Use the previous conversation to understand references and
+follow-up questions.
+
+For example:
+
+Previous conversation:
+Farmer: Nakuru, 3 ha
+Shamba Advisor: What farming help do you need?
+Farmer: What should I plant?
+
+The current question:
+
+"What should I plant?"
+
+must be understood as:
+
+"What should I plant on my 3-hectare farm in Nakuru?"
+
+Do NOT ask the farmer to repeat information that is already
+available in the conversation.
+
+Another example:
+
+Previous:
+Farmer: I planted maize two weeks ago.
+Farmer: The leaves are turning yellow.
+
+Current:
+"Should I add fertilizer?"
+
+Understand that "the crop" and the situation refer to the
+maize already discussed.
+
+Another example:
+
+Previous:
+Farmer: I have tomatoes.
+Farmer: There are spots on the leaves.
+
+Current:
+"What should I spray?"
+
+Understand that "I" and "the crop" refer to the same farmer
+and tomato crop discussed previously.
+
+============================================================
+WHAT COUNTS AS CONVERSATION CONTEXT
+============================================================
+
+Previous messages may contain important information such as:
+
+- farmer location
+- farm size
+- crops
+- crop variety
+- growth stage
+- planting date
+- symptoms
+- weather conditions
+- soil information
+- irrigation method
+- pest/disease observations
+- previous questions
+- previous answers
+- farmer goals
+- timelines
+
+Use these details when interpreting the current message.
+
+Previous conversation information is NOT considered invented
+information. It is established context.
+
+============================================================
+TASK
+============================================================
+
+Read:
+
+1. The previous conversation, if available.
+2. The farmer's current message.
+3. Any quick option selected by the farmer.
+
+Then:
+
+1. Identify the farmer's current intent.
+2. Understand the current user goal.
+3. Extract relevant farming details.
+4. Carry forward relevant known details from the conversation.
+5. Resolve references such as:
+   - it
+   - this
+   - that
+   - there
+   - my farm
+   - my crop
+   - the leaves
+   - the plants
+   - them
+6. Produce a lightly cleaned-up version of the current message.
+7. Determine whether current/recent weather is genuinely needed.
+8. Flag if the message is unrelated to farming.
+9. If the farming question is too vague to act on, request
+   clarification.
+
+IMPORTANT:
+
+The analysis describes the farmer's CURRENT request while
+using previous conversation as context.
+
+Do not generate farming advice.
+
+Call 2 is responsible for advice.
+
+============================================================
+CONSTRAINTS
+============================================================
+
+- Never invent details.
+- Details explicitly established earlier in the conversation
+  may be used as known context.
+- If a detail has never been provided, use null.
+- Do not guess the farmer's location.
+- Do not guess farm size.
+- Do not guess a crop.
+- Do not guess symptoms.
+- Do not guess dates.
+- Do not guess weather.
+- Do not give farming advice.
+- Do not recommend products.
+- Do not diagnose beyond identifying possible causes.
+- Do not force unrelated messages into farming categories.
+
+If the message is unrelated to farming:
+
+    intent = "off_topic"
+
+If the message is farming-related but genuinely too vague
+to act on:
+
+    clarification_required = true
+
+and provide ONE short clarification question.
+
+If enough information exists in the current conversation,
+do not ask for information that has already been provided.
+
+============================================================
+CORRECTED MESSAGE
+============================================================
+
+corrected_message must represent the farmer's CURRENT message.
+
+Fix spelling and grammar only.
+
+Do NOT add information from previous messages into
+corrected_message.
+
+Example:
+
+Previous:
+Farmer: Nakuru, 3 ha
+
+Current:
+"What should i plant"
+
+corrected_message:
+
+"What should I plant?"
+
+NOT:
+
+"What should I plant on my 3-hectare farm in Nakuru?"
+
+The contextual information belongs in the structured fields,
+not in corrected_message.
+
+============================================================
+WEATHER
+============================================================
+
+Set weather_required to true ONLY when current or recent
+weather would genuinely change the response.
+
+Examples where weather may be required:
+
+- planting timing
+- rain-dependent planting
+- irrigation decisions
+- rainfall concerns
+- drought
+- flooding
+- disease risk related to rain/humidity
+- frost or extreme temperatures
+- current weather affecting farm operations
+
+Examples where weather is usually NOT required:
+
+- general crop information
+- crop varieties
+- storage
+- general fertilizer information
+- general pest information
+- harvest information that does not depend on current weather
+
+If weather is required and a location is known from the current
+message OR previous conversation, use that location.
+
+If weather is required but no location is known, do not invent one.
+
+============================================================
+POSSIBLE CAUSES
+============================================================
+
+If the intent is:
+
+- pest_disease
+OR
+- fertilizer_soil
+
+and there are multiple plausible causes for what the farmer
+describes:
+
+list 2-4 short, distinct possible causes.
+
+Examples:
+
+- Fungal disease
+- Nitrogen deficiency
+- Overwatering
+- Pest damage
+
+If there is only one clear cause, leave possible_causes empty.
+
+If the question does not involve diagnosing a cause,
+leave possible_causes empty.
+
+============================================================
+OUTPUT FORMAT
+============================================================
+
+Reply ONLY with valid JSON.
+
+No markdown.
+
+No explanation.
+
+Use exactly this structure:
+
 {
   "intent": "crop_selection | pest_disease | fertilizer_soil | irrigation_weather | harvest_storage | general | off_topic",
   "user_goal": string or null,
@@ -78,74 +340,374 @@ Reply ONLY with valid JSON, no extra commentary, matching exactly:
   "weather_required": true or false,
   "possible_causes": [array of strings, empty if not applicable]
 }
+
+============================================================
+IMPORTANT FIELD RULE
+============================================================
+
+The structured fields should represent information that is
+relevant to understanding the CURRENT request, including
+relevant information already established in the conversation.
+
+For example:
+
+Previous:
+"Nakuru, 3 ha"
+
+Current:
+"What should I plant?"
+
+A good analysis may contain:
+
+{
+  "intent": "crop_selection",
+  "user_goal": "Choose crops to plant",
+  "location": "Nakuru",
+  "crop": null,
+  "farm_size": "3 ha"
+}
+
+Do not ask the farmer for location or farm size again merely
+because they were provided in an earlier message.
 """
 
 
-def analyze_message(farmer_message: str, quick_option: str = None) -> dict:
+# =========================================================
+# FORMAT CONVERSATION HISTORY
+# =========================================================
+
+def _build_conversation_context(
+    conversation_history,
+    current_message,
+):
     """
-    Runs Call 1 on a single farmer message.
-    Returns a dict matching the JSON contract above.
-    Always returns a usable dict — never raises — so the app never crashes.
+    Convert database chat history into a readable conversation
+    for the model.
+
+    The function also prevents the current user message from
+    being duplicated if app.py saved it before calling Call 1.
     """
 
-    # --- Error case 1: empty input ---
+    if not conversation_history:
+        return "(No previous conversation.)"
+
+    lines = []
+
+    current_normalized = (
+        current_message.strip().lower()
+        if current_message
+        else ""
+    )
+
+    for message in conversation_history:
+
+        role = message.get("role")
+        content = message.get("content")
+
+        if not content:
+            continue
+
+        content = str(content).strip()
+
+        if not content:
+            continue
+
+        # -----------------------------------------------------
+        # Prevent current message from appearing twice.
+        #
+        # This is important because app.py may:
+        #
+        # 1. save current message
+        # 2. load chat history
+        # 3. call get_full_analysis()
+        #
+        # If the final database message is the same as the
+        # current message, don't repeat it here.
+        # -----------------------------------------------------
+
+        if (
+            role == "user"
+            and content.lower() == current_normalized
+        ):
+            continue
+
+        if role == "user":
+            lines.append(
+                f"Farmer: {content}"
+            )
+
+        elif role == "assistant":
+            lines.append(
+                f"Shamba Advisor: {content}"
+            )
+
+    if not lines:
+        return "(No previous conversation.)"
+
+    return "\n".join(lines)
+
+
+# =========================================================
+# CALL 1 ANALYSIS
+# =========================================================
+
+def analyze_message(
+    farmer_message: str,
+    quick_option: str = None,
+    conversation_history=None,
+) -> dict:
+    """
+    Runs Call 1 on the farmer's current message plus the
+    previous conversation.
+
+    Returns a dict matching the JSON contract.
+
+    Always returns a usable dict and never intentionally raises
+    an exception to the Streamlit app.
+    """
+
+    # ---------------------------------------------------------
+    # EMPTY INPUT
+    # ---------------------------------------------------------
+
     if not farmer_message or not farmer_message.strip():
+
         return _fallback_response(
             error="empty_input",
-            clarification_question="Please tell me what farming help you need today.",
+            clarification_question=(
+                "Please tell me what farming help you need today."
+            ),
         )
 
-    # Combine the quick-option context (if any) with the free-text message
-    user_content = farmer_message.strip()
-    if quick_option:
-        user_content = f"[Quick option selected: {quick_option}] {user_content}"
+    # ---------------------------------------------------------
+    # CURRENT USER MESSAGE
+    # ---------------------------------------------------------
 
-    # --- Error case 2: the API call itself fails (no internet, timeout, etc.) ---
-    # Retries once before giving up — a single dropped connection or
-    # brief timeout shouldn't fail the whole request.
+    user_content = farmer_message.strip()
+
+    if quick_option:
+
+        user_content = (
+            f"[Quick option selected: {quick_option}] "
+            f"{user_content}"
+        )
+
+    # ---------------------------------------------------------
+    # BUILD PREVIOUS CONVERSATION
+    # ---------------------------------------------------------
+
+    conversation_context = _build_conversation_context(
+        conversation_history,
+        farmer_message,
+    )
+
+    # ---------------------------------------------------------
+    # BUILD MODEL PROMPT
+    # ---------------------------------------------------------
+
+    analysis_prompt = f"""
+PREVIOUS CONVERSATION
+=====================
+
+{conversation_context}
+
+
+CURRENT FARMER MESSAGE
+======================
+
+Farmer:
+{user_content}
+
+
+TASK
+====
+
+Analyze the CURRENT farmer message while using the previous
+conversation as context.
+
+Remember:
+
+- This is an ongoing conversation.
+- Do not treat the current message as a new farmer.
+- Carry forward relevant known details.
+- Resolve references such as "it", "there", "my farm",
+  "the crop", "the leaves", etc.
+- Do not ask the farmer to repeat information already known.
+- Do not give farming advice.
+- Return ONLY the required JSON object.
+"""
+
+    # ---------------------------------------------------------
+    # API CALL
+    # ---------------------------------------------------------
+
     response = None
     last_error = None
 
     for attempt in range(2):
+
         try:
+
             response = client.chat.completions.create(
                 model=MODEL_NAME,
-                response_format={"type": "json_object"},  # forces valid JSON output
+                response_format={
+                    "type": "json_object"
+                },
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": analysis_prompt,
+                    },
                 ],
             )
-            break  # success — stop retrying
+
+            break
+
         except Exception as api_error:
+
             last_error = api_error
 
+    # ---------------------------------------------------------
+    # API FAILURE
+    # ---------------------------------------------------------
+
     if response is None:
+
         return _fallback_response(
             error=f"api_call_failed: {last_error}",
-            clarification_question="I'm having trouble connecting right now. Please try again in a moment.",
+            clarification_question=(
+                "I'm having trouble connecting right now. "
+                "Please try again in a moment."
+            ),
         )
 
-    raw_text = response.choices[0].message.content
+    # ---------------------------------------------------------
+    # GET MODEL OUTPUT
+    # ---------------------------------------------------------
 
-    # --- Error case 3: model returns malformed JSON (rare, since JSON mode
-    # is enabled above, but we still guard against it) ---
     try:
+
+        raw_text = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
+
+    except Exception as error:
+
+        return _fallback_response(
+            error=f"invalid_api_response: {error}",
+            clarification_question=(
+                "Sorry, I didn't quite understand that. "
+                "Could you rephrase?"
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # PARSE JSON
+    # ---------------------------------------------------------
+
+    try:
+
         data = json.loads(raw_text)
-    except json.JSONDecodeError:
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+    ):
+
         return _fallback_response(
             error="invalid_json_from_model",
-            clarification_question="Sorry, I didn't quite understand that. Could you rephrase?",
+            clarification_question=(
+                "Sorry, I didn't quite understand that. "
+                "Could you rephrase?"
+            ),
         )
+
+    # ---------------------------------------------------------
+    # ENSURE REQUIRED FIELDS EXIST
+    # ---------------------------------------------------------
+
+    data = _ensure_analysis_shape(data)
 
     return data
 
 
-def _fallback_response(error: str, clarification_question: str) -> dict:
+# =========================================================
+# ENSURE ANALYSIS SHAPE
+# =========================================================
+
+def _ensure_analysis_shape(data: dict) -> dict:
     """
-    A single, consistent shape returned whenever something goes wrong,
-    so Call 2 and the UI never have to guess what fields exist.
+    Makes sure Call 1 always returns the fields expected by
+    the rest of the application.
     """
+
+    if not isinstance(data, dict):
+
+        return _fallback_response(
+            error="model_returned_non_dict",
+            clarification_question=(
+                "Sorry, I didn't quite understand that. "
+                "Could you rephrase?"
+            ),
+        )
+
+    defaults = {
+        "intent": "general",
+        "user_goal": None,
+        "location": None,
+        "crop": None,
+        "farm_size": None,
+        "growth_stage": None,
+        "symptoms": [],
+        "timeline": None,
+        "clarification_required": False,
+        "clarification_question": None,
+        "corrected_message": "",
+        "weather_required": False,
+        "possible_causes": [],
+    }
+
+    for key, default_value in defaults.items():
+
+        if key not in data:
+            data[key] = default_value
+
+    # Make sure array fields are actually arrays.
+
+    if not isinstance(
+        data.get("symptoms"),
+        list,
+    ):
+        data["symptoms"] = []
+
+    if not isinstance(
+        data.get("possible_causes"),
+        list,
+    ):
+        data["possible_causes"] = []
+
+    return data
+
+
+# =========================================================
+# FALLBACK RESPONSE
+# =========================================================
+
+def _fallback_response(
+    error: str,
+    clarification_question: str,
+) -> dict:
+    """
+    Consistent response whenever something goes wrong.
+    """
+
     return {
         "intent": "off_topic",
         "user_goal": None,
@@ -160,36 +722,103 @@ def _fallback_response(error: str, clarification_question: str) -> dict:
         "corrected_message": "",
         "weather_required": False,
         "possible_causes": [],
-        "error": error,  # extra field, not part of the strict contract,
-                          # useful for logging/debugging during testing
+        "error": error,
+        "weather": None,
     }
 
 
-def get_full_analysis(farmer_message: str, quick_option: str = None) -> dict:
+# =========================================================
+# FULL ANALYSIS + WEATHER
+# =========================================================
+
+def get_full_analysis(
+    farmer_message: str,
+    quick_option: str = None,
+    conversation_history=None,
+) -> dict:
     """
-    Runs Call 1, then attaches live weather data if the analysis says
-    it's relevant and a location was given.
+    Runs Call 1 using the current farmer message plus
+    conversation history.
 
-    This is the function Call 2 (the partner's code) should actually
-    call — not analyze_message() directly — since this is the fully
-    enriched handoff, weather included when relevant.
+    Then attaches live weather data if:
+
+    1. weather_required is true
+    2. a location is known
+
+    This is the function that app.py should call.
     """
-    from weather.open_meteo import get_weather  # local import avoids a
-                                                  # hard dependency if
-                                                  # weather isn't needed
 
-    analysis = analyze_message(farmer_message, quick_option)
+    # ---------------------------------------------------------
+    # RUN CALL 1
+    # ---------------------------------------------------------
 
-    needs_weather = analysis.get("weather_required") and analysis.get("location")
-    analysis["weather"] = get_weather(analysis["location"]) if needs_weather else None
+    analysis = analyze_message(
+        farmer_message=farmer_message,
+        quick_option=quick_option,
+        conversation_history=conversation_history,
+    )
+
+    # ---------------------------------------------------------
+    # WEATHER
+    # ---------------------------------------------------------
+
+    needs_weather = (
+        analysis.get("weather_required")
+        and analysis.get("location")
+    )
+
+    if needs_weather:
+
+        try:
+
+            from weather.open_meteo import get_weather
+
+            analysis["weather"] = get_weather(
+                analysis["location"]
+            )
+
+        except Exception as weather_error:
+
+            # Weather should never crash Call 1.
+            analysis["weather"] = None
+
+            analysis["weather_error"] = str(
+                weather_error
+            )
+
+    else:
+
+        analysis["weather"] = None
 
     return analysis
 
 
-# --- Quick manual test from the command line ---
+# =========================================================
+# COMMAND-LINE TEST
+# =========================================================
+
 if __name__ == "__main__":
-    print("Shamba Advisor — Call 1 test\n")
-    test_message = input("Type a farmer message to test: ")
-    result = get_full_analysis(test_message)
-    print("\nCall 1 + weather output:")
-    print(json.dumps(result, indent=2))
+
+    print(
+        "Shamba Advisor — Call 1 conversation-memory test\n"
+    )
+
+    test_message = input(
+        "Type a farmer message to test: "
+    )
+
+    result = get_full_analysis(
+        test_message
+    )
+
+    print(
+        "\nCall 1 + weather output:"
+    )
+
+    print(
+        json.dumps(
+            result,
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
