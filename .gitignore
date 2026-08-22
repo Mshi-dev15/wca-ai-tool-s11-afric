@@ -1,3 +1,10 @@
+.venv/
 my-env/
-.env
 __pycache__/
+*.pyc
+
+.env
+
+shamba_advisor.db
+
+outputs/
