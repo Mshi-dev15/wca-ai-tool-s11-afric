@@ -71,7 +71,6 @@ wca-ai-tool-s11-afric/
 │
 ├── utility/ (or utils/)
 │   ├── file_saver.py            # Saves the final advice to a .txt file
-│   └── encryption.py            # Encrypts message content before storage
 │
 └── outputs/                     
 ```
@@ -103,18 +102,12 @@ Create a `.env` file in the project root (this file is git-ignored and never get
 OPENAI_API_KEY=your_openai_key_here
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_anon_key
-ENCRYPTION_KEY=your_generated_encryption_key
 ```
 
 **Getting an OpenAI key:** platform.openai.com → API keys → Create new secret key.
 
 **Getting Supabase credentials:** create a project at supabase.com, run `models/supabase_schema.sql` in its SQL Editor to create/update the tables, then copy your Project URL and anon key from Settings → API.
 
-**Generating an encryption key:**
-```bash
-python utils/encryption.py
-```
-This prints a new key the first time — copy it into `.env` as shown above.
 
 ### 5. Run the app
 ```bash
@@ -131,7 +124,7 @@ python -m ai.first_call        # Test Call 1 — supports an ongoing multi-turn 
 python -m ai.second_call       # Test Call 2 with a built-in sample analysis
 python weather/open_meteo.py   # Test the weather lookup with a location name
 python models/database_supabase.py   # Test the database connection
-python utils/encryption.py     # Generate a key, or test encrypt/decrypt with an existing one
+
 ```
 
 ## Key features
@@ -140,7 +133,6 @@ python utils/encryption.py     # Generate a key, or test encrypt/decrypt with an
 - **Cause selection** — when a symptom has multiple likely causes, the farmer picks one via quick buttons, or describes it themselves if none fit
 - **Weather-aware advice** — Call 1 decides when current weather is actually relevant, and only then fetches it via Open-Meteo
 - **Persistent sign-in** — a farmer's name is saved in the page URL, so returning to that link signs them back in without retyping
-- **Encrypted storage** — message content is encrypted before being saved to Supabase, and decrypted only when displayed back to the farmer
 - **Safety-conscious advice** — Call 2 is instructed never to invent pesticide names or doses, and always tells farmers to follow product labels and keep people/animals away from sprayed areas
 
 ## Error handling
@@ -151,14 +143,18 @@ The tool handles the required failure cases without crashing:
 - **Invalid JSON from the model** — caught and handled with a fallback response
 - **Missing/invalid data at any stage** (weather lookup failure, database errors) — degrades gracefully rather than crashing the app
 
+## Deployment
+ 
+Deployed via **Streamlit Community Cloud**, connected directly to this GitHub repo. API keys are set in the app's **Secrets** manager on Streamlit Cloud (not in `.env`, since that file never leaves your local machine).
 
 ## Notes for graders
 
+- API key is never hardcoded — loaded from `.env` locally / Streamlit Secrets when deployed
 - Both R-T-C-C-O prompts are documented in full in the written report
 - Chat history and farmer records persist in Supabase (not local SQLite), so they survive app restarts and redeploys on Streamlit Cloud
 - Message content is encrypted at rest as an added privacy measure
 
 ## Group members and contributions
 
-- **Faith Mshiki** — Call 1 (intake analysis, conversation memory), weather integration, Supabase database, encryption, Streamlit UI, deployment
-- **Simon Gatuku** — Call 2 (action plan generation), farmer profile persistence, safety constraints for chemical/pesticide advice
+- **Faith Mshiki** — Call 1 (intake analysis, conversation memory), weather integration, Supabase database, deployment
+- **Simon Gatuku** — Call 2 (action plan generation), farmer profile persistence, safety constraints for chemical/pesticide advice,Streamlit UI,
