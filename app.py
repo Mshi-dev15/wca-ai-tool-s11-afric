@@ -21,10 +21,14 @@ import streamlit as st
 # FIX FOR STREAMLIT CLOUD DEPLOYMENT
 # Inject secrets into environment variables so our AI modules 
 # and database modules can read them using standard os.getenv()
+# SAFE SECRETS LOADING (Prevents crashes on Streamlit Cloud)
 # =========================================================
-for key in ["OPENAI_API_KEY", "SUPABASE_URL", "SUPABASE_KEY"]:
-    if key in st.secrets:
-        os.environ[key] = st.secrets[key]
+try:
+     for key in ["OPENAI_API_KEY", "SUPABASE_URL", "SUPABASE_KEY"]:
+         if key in st.secrets:
+             os.environ[key] = st.secrets[key]
+except Exception:
+    pass  # Silently ignore and fall back to local .env
 # =========================================================
 
 
@@ -851,3 +855,21 @@ if user_message:
 
     else:
         run_call_two(analysis)
+
+# =========================================================
+# DISCLAIMER FOOTER
+# =========================================================
+st.markdown("""
+<div style="
+    text-align: center;
+    color: #6a6a68;
+    font-size: 12px;
+    margin-top: 60px;
+    padding: 20px 0;
+    border-top: 1px solid #3a3a38;
+">
+    ⚠️ <strong>Disclaimer:</strong> Shamba Advisor is an AI assistant. 
+    While it strives to provide accurate farming advice, it can make mistakes. 
+    Always verify critical decisions with a local agricultural expert.
+</div>
+""", unsafe_allow_html=True)
