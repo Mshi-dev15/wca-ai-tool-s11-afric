@@ -8,6 +8,18 @@ An AI-powered decision assistant for smallholder farmers in Kenya — covering t
 
 ---
 
+### 🚀 Live Demo
+
+Click the button below to try the live application:
+
+<div style="text-align: center; margin: 20px 0;">
+  <a href="https://mshi-dev15-wca-ai-tool-s11-afric-app-njwono.streamlit.app/" target="_blank" style="display: inline-block; background-color: #1e1e1e; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 600; border: 1px solid #3a3a38;">
+    🌱 Launch Shamba Advisor
+  </a>
+</div>
+
+---
+
 ## What it does
 
 A farmer types a question in plain language — misspellings, mixed English/Swahili, and incomplete sentences are all fine. Shamba Advisor then:
