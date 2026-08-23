@@ -29,10 +29,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Check Streamlit Cloud Secrets first, then fall back to local .env
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(api_key=api_key)
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 
 # =========================================================

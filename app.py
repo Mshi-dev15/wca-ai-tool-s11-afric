@@ -12,9 +12,21 @@ need to retype their name every session.
 # =========================================================
 
 import html
+import os
 from pathlib import Path
 
 import streamlit as st
+
+# =========================================================
+# FIX FOR STREAMLIT CLOUD DEPLOYMENT
+# Inject secrets into environment variables so our AI modules 
+# and database modules can read them using standard os.getenv()
+# =========================================================
+for key in ["OPENAI_API_KEY", "SUPABASE_URL", "SUPABASE_KEY"]:
+    if key in st.secrets:
+        os.environ[key] = st.secrets[key]
+# =========================================================
+
 
 from ai.first_call import get_full_analysis
 from ai.second_call import generate_action_plan
