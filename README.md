@@ -13,7 +13,7 @@ An AI-powered decision assistant for smallholder farmers in Kenya — covering t
 Click the badge below to try the live application:
 
 <p align="center">
-[![🌱 Launch Shamba Advisor](https://img.shields.io/badge/🌱%20Launch%20Shamba%20Advisor-000000?style=for-the-badge)](https://mshi-dev15-wca-ai-tool-s11-afric-app-njwono.streamlit.app/)
+  <a href="https://mshi-dev15-wca-ai-tool-s11-afric-app-njwono.streamlit.app/" target="_blank"><img src="https://img.shields.io/badge/🌱%20Launch%20Shamba%20Advisor-000000?style=for-the-badge" alt="Launch Shamba Advisor"></a>
 </p>
 
 ---
